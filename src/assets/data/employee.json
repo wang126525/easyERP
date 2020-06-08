@@ -1,6 +1,6 @@
 {
   "tableColumn": [{
-      "prop": "empNo",
+      "prop": "empNum",
       "label": "员工编号",
       "width":"100px"
     },

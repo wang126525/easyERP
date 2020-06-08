@@ -1,6 +1,6 @@
 {
   "tableColumn": [{
-      "prop": "goodsNo",
+      "prop": "goodsNum",
       "label": "商品编号"
     },
     {

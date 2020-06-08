@@ -153,7 +153,6 @@
   </div>
 </template>
 <script>
-import axios from "axios";
 import { add, getSupplierList,edit,delItem,delMany,editMany } from "@/api/supplier.js";
 import tableItems from "@/assets/data/supplier.json";
 import cities from "@/assets/city/cities.json";
@@ -161,30 +160,22 @@ export default {
   name: "employee",
   data() {
     return {
-      currowdata: {},
-      tableItems: tableItems.tableColumn,
-      checked: true,
-      suppliers: [],
+      currowdata: {},//当前操作行数据
+      tableItems: tableItems.tableColumn,//表格字段名称
+      suppliers: [],//表格数据
       loading: false,
-      total: 0,
-      page: 1,
-      multipleSelection: [],
-      loading: false,
-      filters: {
+      total: 0,//总数
+      page: 1,//当前页
+      multipleSelection: [],//表格多选项
+      filters: {//关键字查询
         supNo: "",
         supplierName: ""
       },
-      editVisible: false,
-      addVisible: false,
-      rules: tableItems.rules,
-      editForm: tableItems.editform,
-      addForm: tableItems.addform,
-      CityInfo: cities,
-      option: {
-        edit: {
-          supplierCompanyAddr: [],
-          supplierCompanyAddrDetail: ""
-        },
+      addVisible: false,//弹窗是否开启
+      rules: tableItems.rules,//表单验证规则
+      addForm: tableItems.addform,//表单字段 
+      CityInfo: cities,//城市列表
+      option: {//表单字段地址信息
         add: {
           supplierCompanyAddr: [],
           supplierCompanyAddrDetail: ""
@@ -193,10 +184,10 @@ export default {
     };
   },
   mounted() {
-    this.queryAll();
     this.getList();
   },
   methods: {
+    // 获取数据列表
     getList() {
       getSupplierList({
         page: parseInt(this.page),
@@ -208,11 +199,13 @@ export default {
         }
       });
     },
+    // 分页查询
     handleCurrentChange(val) {
       console.log("page", val);
       this.page = val;
       this.getList();
     },
+    // 弹窗关闭事件
     closeAddDialog() {
       this.currowdata = {};
       this.addForm = {
@@ -224,6 +217,7 @@ export default {
       this.option.add.supplierCompanyAddr = [];
       this.option.add.supplierCompanyAddrDetail = "";
     },
+    // 行内启用
     handleUse(row){
       const params = {...row};
       const use = row.supplierIsUse;
@@ -236,22 +230,7 @@ export default {
       })
 
     },
-
-    _multiStateChange(state, cb) {
-      if (this.multipleSelection.length == 0) {
-        this.$message.warning("请选择");
-      } else {
-        let multi = this.multipleSelection;
-        let supNo = multi.map(el => el.supNo);
-        axios
-          .post("api/supplier/multiStateChange", {
-            supplierIsUse: state,
-            supNo: supNo
-          })
-          .then(cb)
-          .catch(err => console.log(err));
-      }
-    },
+    // 批量启用停用
     handleMultiUse(type) {
       if (this.multipleSelection.length == 0) {
         this.$message.warning("请选择");
@@ -272,7 +251,7 @@ export default {
       }
 
     },
-    
+    // 监听表格选中
     handleSelection(val) {
       this.multipleSelection = val;
       console.log(val);
@@ -296,31 +275,12 @@ export default {
 
       }
     },
-    filterHandler(value, row, column) {
-      const property = column["property"];
-      return row[property] === value;
-    },
-    queryAll() {
-      // axios
-      //   .get("api/supplier/queryAll")
-      //   .then(res => {
-      //     this.suppliers = res.data;
-      //     this.pageCount = Math.ceil(this.suppliers.length / 10);
-      //   })
-      //   .catch(err => console.log(err));
-    },
+    // 搜索查询
     handleSearch() {
       this.page = 1;
       this.getList();
     },
-    handleReflash() {
-      this.loading = true;
-      this.queryAll();
-      this.filters.supplierName = "";
-      setTimeout(() => {
-        this.loading = false;
-      }, 1000);
-    },
+    // 行内编辑
     handleEdit(row) {
       this.addVisible = true;
       this.currowdata = {...row};
@@ -333,6 +293,7 @@ export default {
       this.option.add.supplierCompanyAddr = row.supplierCompanyAddr.split(" ");
       this.option.add.supplierCompanyAddrDetail = row.supplierCompanyAddrDetail;
     },
+    // 新增或编辑
     addSubmit() {
       this.$refs.addForm.validate(valid => {
         if (valid) {
@@ -380,6 +341,7 @@ export default {
         }
       });
     },
+    // 行内删除
     handleDel(row) {
       this.$confirm("删除该记录，确定？", "提示", {
         type: "warning"
