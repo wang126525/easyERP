@@ -11,28 +11,12 @@
         ></el-input>
       </el-form-item>
       <el-form-item>
-        <el-input
-          v-model="filters.goodsNo"
-          clearable
-          @keydown.enter.native="handleKey"
-          placeholder="请输入商品编号"
-        ></el-input>
-      </el-form-item>
-      <el-form-item>
-        <el-input
-          v-model="filters.goodsType"
-          clearable
-          @keydown.enter.native="handleKey"
-          placeholder="请输入商品分类"
-        ></el-input>
-      </el-form-item>
-      <el-form-item>
         <el-button type="primary" @click="handleSearch" size="mini">
           <i class="el-icon-search"></i>查找</el-button
         >
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="handleAdd" size="mini">
+        <el-button type="primary" @click="addVisible = true" size="mini">
           <i class="el-icon-plus"></i>新增</el-button
         >
       </el-form-item>
@@ -46,12 +30,12 @@
               </el-button>
             </el-dropdown-item>
             <el-dropdown-item>
-              <el-button type="text" @click="handleMultiUse" size="mini"
+              <el-button type="text" @click="handleMultiUse(true)" size="mini"
                 >批量上架</el-button
               >
             </el-dropdown-item>
             <el-dropdown-item>
-              <el-button type="text" @click="handleMultiStopUse" size="mini"
+              <el-button type="text" @click="handleMultiUse(false)" size="mini"
                 >批量下架</el-button
               >
             </el-dropdown-item>
@@ -109,7 +93,7 @@
             <el-dropdown-menu slot="dropdown">
               <template v-if="scope.row.goodsState">
                 <el-dropdown-item>
-                  <el-button type="text" @click="handleStopUse(scope.row)"
+                  <el-button type="text" @click="handleUse(scope.row)"
                     >下架</el-button
                   >
                 </el-dropdown-item>
@@ -134,7 +118,11 @@
     >
     </el-pagination>
     <!-- 新增框 -->
-    <el-dialog title="添加信息" :visible.sync="addVisible">
+    <el-dialog
+      title="添加信息"
+      :visible.sync="addVisible"
+      @close="closeAddDialog"
+    >
       <el-form
         v-if="addVisible"
         :model="addForm"
@@ -221,13 +209,14 @@ export default {
   name: "goods",
   data() {
     return {
+      curRowData: {},
       tableItems: tableItems.tableColumn,
       goods: [],
       suppliers: [
-        {id:'165165165',label:'165165165'},
-        {id:'efstfsef',label:'fsdfsdfsdf'},
-        {id:'fsdfsdfsdfs',label:'1651fsdfsdf65165'},
-        {id:'sdf',label:'fsdf'}
+        { id: "165165165", label: "165165165" },
+        { id: "efstfsef", label: "fsdfsdfsdf" },
+        { id: "fsdfsdfsdfs", label: "1651fsdfsdf65165" },
+        { id: "sdf", label: "fsdf" }
       ],
       loading: false,
       pageCount: 0,
@@ -241,10 +230,10 @@ export default {
       },
       units: tableItems.units,
       types: [
-        {goodsType:'1',label:'烟'},
-        {goodsType:'2',label:'酒'},
-        {goodsType:'3',label:'饮料'},
-        {goodsType:'4',label:'方便面'},
+        { goodsType: "1", label: "烟" },
+        { goodsType: "2", label: "酒" },
+        { goodsType: "3", label: "饮料" },
+        { goodsType: "4", label: "方便面" }
       ],
       editVisible: false,
       addVisible: false,
@@ -264,205 +253,23 @@ export default {
       }
     };
   },
+  mounted() {
+    this.getList();
+  },
   methods: {
-    filterTag(value, row) {
-      return row.goodsState === value;
-    },
-    _stateChange(state, goodsNo, cb) {
-      axios
-        .post("api/goods/stateChange", {
-          goodsState: state,
-          goodsNo: goodsNo
-        })
-        .then(cb);
-      ("");
-    },
-    handleUse(row) {
-      this.editForm = Object.assign({}, row);
-      this._stateChange("已上架", this.editForm.goodsNo, res => {
-        this.$message.success("已上架");
-        this.queryAll();
-      });
-    },
-    handleStopUse(row) {
-      this.editForm = Object.assign({}, row);
-      this._stateChange("已下架", this.editForm.goodsNo, res => {
-        this.$message.success("已下架");
-        this.queryAll();
-      });
-    },
-    _multiStateChange(state, cb) {
-      if (this.multipleSelection.length == 0) {
-        this.$message.warning("请选择");
-      } else {
-        let multi = this.multipleSelection;
-        let goodsNo = multi.map(el => el.goodsNo);
-        axios
-          .post("api/goods/multiStateChange", {
-            goodsState: state,
-            goodsNo: goodsNo
-          })
-          .then(cb);
-        ("");
-      }
-    },
-    handleMultiUse() {
-      this._multiStateChange("已上架", res => {
-        this.$message.success("已上架");
-        this.queryAll();
-      });
-    },
-    handleMultiStopUse() {
-      this._multiStateChange("已下架", res => {
-        this.$message.success("已下架");
-        this.queryAll();
-      });
-    },
-    handleSelection(val) {
-      this.multipleSelection = val;
-    },
-
-    handleMultiDel(val) {
-      if (this.multipleSelection.length == 0) {
-        this.$message.warning("请选择");
-      } else {
-        let multi = this.multipleSelection;
-        this.$confirm("你确定？", "提示", {})
-          .then(() => {
-            let goodsNo = multi.map(el => el.goodsNo);
-            axios
-              .post("api/goods/multiDel", {
-                goodsNo: goodsNo
-              })
-              .then(res => {
-                this.$message.success("删除成功");
-                multi.map(el => {
-                  let i = this.goods.indexOf(el);
-                  this.goods.splice(i, 1);
-                });
-                this.loading = true;
-                this.queryAll();
-                this.loading = false;
-              });
-            ("");
-          })
-          .catch(() => {
-            this.$message.info("删除取消");
-          });
-      }
-    },
-    filterHandler(value, row, column) {
-      const property = column["property"];
-      return row[property] === value;
-    },
-    queryAll() {
-      axios.get("api/goods/queryAll").then(res => {
-        this.goods = res.data;
-        this.pageCount = Math.ceil(this.goods.length / 10);
-      });
-      ("");
-    },
-    queryUsedTypes() {
-      axios.get("api/types/queryUsedTypes").then(res => {
-        this.types = res.data;
-      });
-      ("");
-    },
-    queryUsedSup() {
-      axios.get("api/supplier/queryUsedSup").then(res => {
-        this.suppliers = res.data;
-      });
-      ("");
-    },
-    handleSearch() {
-      if (
-        !this.filters.goodsName &&
-        !this.filters.goodsNo &&
-        !this.filters.goodsType
-      ) {
-        this.$message.warning("请输入关键字");
-        this.queryAll();
-      }
-      if (!this.filters.goodsName) {
-        this.filters.goodsName = null;
-      }
-      if (!this.filters.goodsType) {
-        this.filters.goodsType = null;
-      }
-      // if (!this.filters.goodsNo && this.filters.goodsName ===null) {
-      //   this.queryAll()
-      // }
-      // if (!this.filters.goodsNo && this.filters.goodsType===null) {
-      //   this.queryAll()
-      // }
-      axios
-        .post("api/goods/queryByName", {
-          goodsNo: this.filters.goodsNo,
-          goodsName: this.filters.goodsName,
-          goodsType: this.filters.goodsType
-        })
-        .then(res => {
-          this.goods = res.data;
-        });
-      ("");
-    },
-    handleKey() {
-      this.handleSearch();
-    },
-    handleAdd() {
-      this.addVisible = true;
-      this.queryUsedSup();
-      this.queryUsedTypes();
-    },
-    handleReflash() {
-      this.loading = true;
-      this.queryAll();
-      this.filters.goodsName = "";
-      setTimeout(() => {
-        this.loading = false;
-      }, 1000);
-    },
-    handleEdit(row) {
-      this.editVisible = true;
-      this.queryUsedSup();
-      this.queryUsedTypes();
-      this.editForm = Object.assign({}, row);
-    },
-    editSubmit() {
-      this.$refs.editForm.validate(valid => {
-        if (valid) {
-          this.$confirm("你确定？", "提示", {})
-            .then(() => {
-              let params = Object.assign({}, this.editForm);
-              let goodsAddTime = moment().format("YYYY-MM-DD HH:mm");
-              axios
-                .post("api/goods/update", {
-                  goodsName: params.goodsName,
-                  goodsType: params.goodsType,
-                  goodsUnit: params.goodsUnit,
-                  goodsModel: params.goodsModel,
-                  goodsSpec: params.goodsSpec,
-                  stockPrice: params.stockPrice,
-                  goodsPrice: params.goodsPrice,
-                  supplierName: params.supplierName,
-                  goodsAddTime: goodsAddTime,
-                  goodsNo: params.goodsNo
-                })
-                .then(res => {
-                  this.$message.success("提交成功");
-                  this.editVisible = false;
-                  this.queryAll();
-                  let page = Math.ceil(this.page / 10) + 1;
-                  this.handleCurrentChange(page);
-                });
-              ("");
-            })
-            .catch(() => {
-              this.$message.info("提交已取消");
-            });
+    // 获取数据列表
+    getList() {
+      getGoodsList({ content: this.filters.goodsName, page: this.page }).then(
+        res => {
+          console.log(res);
+          if (res.status) {
+            this.goods = res.data.data;
+            this.total = res.data.total;
+          }
         }
-      });
+      );
     },
+    // 添加商品
     addSubmit() {
       this.$refs.addForm.validate(valid => {
         if (valid) {
@@ -474,73 +281,142 @@ export default {
             goodsUnit: params.goodsUnit,
             goodsModel: params.goodsModel,
             goodsSpec: params.goodsSpec,
-            stockPrice: params.stockPrice,
-            goodsPrice: params.goodsPrice,
+            stockPrice: parseInt(params.stockPrice),
+            goodsPrice: parseInt(params.goodsPrice),
             supplierName: params.supplierName,
             goodsAddTime: goodsAddTime
           };
-          add(data).then(res => {
-            console.log(res);
-            this.$message.success("添加成功");
-            this.addForm = {
-              goodsName: "",
-              goodsType: "",
-              goodsUnit: "",
-              goodsModel: "",
-              goodsSpec: "",
-              goodsPrice: "",
-              supplierName: ""
-            };
-            this.addVisible = false;
-            this.queryAll();
-            let page = Math.ceil(this.page / 10) + 1;
-            this.handleCurrentChange(page);
-          });
+          if (this.curRowData.goodsNum) {
+            edit({...data,goodsNum:this.curRowData.goodsNum}).then(res=>{
+              if(res.status){
+                this.$message.success("编辑成功");
+                this.addVisible = false;
+                this.getList();
+              }
+            })
+          } else {
+            add(data).then(res => {
+              if(res.status){
+                this.$message.success("添加成功");
+                this.addVisible = false;
+                this.getList();
+              }
+            });
+          }
         }
       });
     },
+    // 编辑
+    handleEdit(row) {
+      const rowdata = { ...row };
+      this.curRowData = { ...row };
+      this.addForm = {
+        goodsName: rowdata.goodsName,
+        goodsType: rowdata.goodsType,
+        goodsUnit: rowdata.goodsUnit,
+        goodsModel: rowdata.goodsModel,
+        goodsSpec: rowdata.goodsSpec,
+        stockPrice: rowdata.stockPrice,
+        goodsPrice: rowdata.goodsPrice,
+        supplierName: rowdata.supplierName
+      };
+      this.addVisible = true;
+    },
+    // 窗口关闭事件
+    closeAddDialog() {
+      this.curRowData = {};
+      this.addForm = {
+        goodsName: "",
+        goodsType: "",
+        goodsUnit: "",
+        goodsModel: "",
+        goodsSpec: "",
+        goodsPrice: "",
+        supplierName: ""
+      };
+      this.addVisible = false;
+    },
+    // 行内删除
     handleDel(row) {
       this.$confirm("删除该记录，确定？", "提示", {
         type: "warning"
+      }).then(() => {
+        delItem({ goodsNum: row.goodsNum }).then(res => {
+          if (res.status) {
+            this.$message.success("删除成功");
+            this.page = 1;
+            this.getList();
+          }
+        })
       })
-        .then(() => {
-          axios
-            .post("api/goods/del", {
-              goodsNo: row.goodsNo
-            })
-            .then(res => {
-              let index = this.goods.indexOf(row);
-              this.goods.splice(index, 1);
-              this.$message.success("删除成功");
-              this.loading = true;
-              this.queryAll();
-              setTimeout(() => {
-                this.loading = false;
-              }, 1000);
-              let page = Math.ceil(this.page / 10) + 1;
-              this.handleCurrentChange(page);
-            });
-          ("");
-        })
-        .catch(() => {
-          this.$message.info("删除已取消");
-        });
     },
-    handleCurrentChange(val) {
-      this.page = (val - 1) * 10;
-      axios
-        .post("/api/goods/pagination", {
-          page: (val - 1) * 10
-        })
-        .then(res => {
-          this.goods = res.data;
+    // 模糊查询
+    handleSearch() {
+      this.page = 1;
+      this.getList();
+    },
+    // 多选删除
+    handleMultiDel() {
+      if (this.multipleSelection.length == 0) {
+        this.$message.warning("请选择");
+      } else {
+        this.$confirm("你确定？", "提示", {}).then(() => {
+          let multi = this.multipleSelection;
+          let empNum = multi.map(el => el.empNum);
+          delMany(multi).then(res => {
+            if (res.status) {
+              this.$message.success("删除成功");
+              this.page = 1;
+              this.getList();
+            }
+          });
         });
-      ("");
-    }
-  },
-  created() {
-    this.queryAll();
-    this.handleCurrentChange(1);
+      }
+    },
+    // 批量上下架
+    handleMultiUse(type) {
+      if (this.multipleSelection.length == 0) {
+        this.$message.warning("请选择");
+      } else {
+        const str = type?'启用':'停用';
+        this.$confirm(`确定要批量${str}吗？`, "提示", {}).then(() => {
+            editMany({list:this.multipleSelection,type}).then(res=>{
+              console.log(res)
+              if(res.status){
+                this.$message.success("操作成功")
+                this.page = 1;
+                this.getList();
+              }
+            })
+          }).catch(err=>{
+          })
+
+      }
+
+    },
+    // 行内启用
+    handleUse(row){
+      const params = {...row};
+      const use = row.goodsState;
+      params.goodsState = !use;
+      edit(params).then(res=>{
+        if(res.status){
+          row.goodsState = !use;
+          this.$message.success("启用成功");
+        }
+      })
+    },
+    // 分页查询
+    handleCurrentChange(val) {
+      console.log("page", val);
+      this.page = val;
+      this.getList();
+    },
+    // 监听表格选中
+    handleSelection(val) {
+      this.multipleSelection = val;
+      console.log(val);
+    },
   }
 };
 </script>

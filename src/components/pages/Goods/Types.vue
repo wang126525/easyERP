@@ -27,18 +27,17 @@
     <el-table :data="types" @selection-change="handleSelection">
       <el-table-column type="selection">
       </el-table-column>
-      <el-table-column prop="goodsTypeNo" width="100px" label="分类编号"></el-table-column>
-      <el-table-column prop="goodsType" width="150px" label="分类名">
+      <el-table-column prop="goodstypeNum" width="100px" label="分类编号"></el-table-column>
+      <el-table-column prop="goodstypeName" width="150px" label="分类名">
         <template slot-scope="scope">
-            <el-input v-model="scope.row.goodsType" v-show="scope.row.editState" @blur="editSubmit(scope.row)" ></el-input>
-          <span v-show="!scope.row.editState" @click="handleEdit(scope.row)">{{scope.row.goodsType}}</span>
+            <el-input v-model="scope.row.goodstypeName" v-show="scope.row.editState" @blur="editSubmit(scope.row)" ></el-input>
+          <span v-show="!scope.row.editState" @click="handleEdit(scope.row)">{{scope.row.goodstypeName}}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="typeAddTime" width="150px" label="添加时间"></el-table-column>
-      <el-table-column prop="tag" label="状态" width="100" :filters="[{ text: '已启用', value: '已启用' }, { text: '已禁用', value: '已禁用' }]"
-        :filter-method="filterTag" filter-placement="bottom-end">
+      <el-table-column prop="goodstypeAddTime" width="150px" label="添加时间"></el-table-column>
+      <el-table-column prop="tag" label="状态" width="100"  filter-placement="bottom-end">
         <template slot-scope="scope">
-          <el-tag :type="scope.row.goodsTypeState === '已启用' ? 'success':'danger'" close-transition>{{scope.row.goodsTypeState}}</el-tag>
+          <el-tag :type="scope.row.goodstypeState === '已启用' ? 'success':'danger'" close-transition>{{scope.row.goodstypeState?'已启用':'已禁用'}}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作">
@@ -48,7 +47,7 @@
           <el-dropdown>
             <el-button type="warning" size="mini">审核</el-button>
             <el-dropdown-menu slot="dropdown">
-              <template v-if="scope.row.goodsTypeState==='已启用'">
+              <template v-if="scope.row.goodstypeState==='已启用'">
                 <el-dropdown-item>
                   <el-button type="text" @click="handleStopUse(scope.row)">禁用</el-button>
                 </el-dropdown-item>
@@ -66,6 +65,14 @@
 <script>
   import axios from 'axios'
   import moment from 'moment'
+  import {
+  add,
+  getGoodsTypeList,
+  edit,
+  delItem,
+  delMany,
+  editMany
+} from "@/api/goodstype.js";
   export default {
     data() {
       return {
@@ -73,33 +80,43 @@
         addType: '',
         multipleSelection: [],
         editForm: {
-          goodsType: '',
-          goodsTypeNo: ''
+          goodstypeName: '',
+          goodstypeNum: ''
         },
         
       }
     },
+    mounted(){
+      this.getList();
+    },
     methods: {
-      filterTag(value, row) {
-        return row.goodsTypeState === value;
+      getList(){
+        getGoodsTypeList().then(res=>{
+          if(res.status){
+            this.types = res.data.data;
+          }
+        })
       },
-      _stateChange(state, goodsTypeNo, cb) {
+      filterTag(value, row) {
+        return row.goodstypeState === value;
+      },
+      _stateChange(state, goodstypeNum, cb) {
         axios.post('api/types/stateChange', {
-            goodsTypeState: state,
-            goodsTypeNo: goodsTypeNo
+            goodstypeState: state,
+            goodstypeNum: goodstypeNum
           }).then(cb)
           .catch(err => console.log(err))
       },
       handleUse(row) {
         this.editForm = Object.assign({}, row);
-        this._stateChange('已启用', this.editForm.goodsTypeNo, res => {
+        this._stateChange('已启用', this.editForm.goodstypeNum, res => {
           this.$message.success('已启用')
           this.queryAll()
         })
       },
       handleStopUse(row) {
         this.editForm = Object.assign({}, row);
-        this._stateChange('已禁用', this.editForm.goodsTypeNo, res => {
+        this._stateChange('已禁用', this.editForm.goodstypeNum, res => {
           this.$message.success('已禁用')
           this.queryAll()
         })
@@ -109,10 +126,10 @@
           this.$message.warning('请选择')
         } else {
           let multi = this.multipleSelection
-          let goodsTypeNo = multi.map(el => el.goodsTypeNo)
+          let goodstypeNum = multi.map(el => el.goodstypeNum)
           axios.post('api/types/multiStateChange', {
-              goodsTypeState: state,
-              goodsTypeNo: goodsTypeNo
+              goodstypeState: state,
+              goodstypeNum: goodstypeNum
             })
             .then(cb)
             .catch(err => console.log(err))
@@ -139,9 +156,9 @@
         } else {
           let multi = this.multipleSelection
           this.$confirm('你确定？', '提示', {}).then(() => {
-              let goodsTypeNo = multi.map(el => el.goodsTypeNo)
+              let goodstypeNum = multi.map(el => el.goodstypeNum)
               axios.post('api/types/multiDel', {
-                  goodsTypeNo: goodsTypeNo
+                  goodstypeNum: goodstypeNum
                 })
                 .then(res => {
                   this.$message.success('删除成功');
@@ -173,16 +190,15 @@
           .catch(err => console.log(err))
       },
       handleAdd() {
-        let typeAddTime = moment().format('YYYY-MM-DD HH:mm')
-        axios.post('api/types/add', {
-            goodsType: this.addType,
-            typeAddTime: typeAddTime
-          }).then(res => {
-            this.$message.success('添加成功')
-            this.addType=''
-            this.queryAll()
-          })
-          .catch(err => console.log(err))
+        const params = {
+          goodstypeName:this.addType,
+          goodstypeAddTime:new Date()
+        }
+        add(params).then(res=>{
+          if(res.status){
+            this.$message.success("添加成功")
+          }
+        })
       },
       handleEdit(row) {
         row.editState=!row.editState
@@ -190,8 +206,8 @@
       },
       editSubmit(row) {
         axios.post('api/types/update', {
-            goodsType:row.goodsType,
-            goodsTypeNo:row.goodsTypeNo
+            goodstypeName:row.goodstypeName,
+            goodstypeNum:row.goodstypeNum
           }).then(res => {
             this.$message.success('提交成功')
             this.queryAll()
@@ -204,7 +220,7 @@
           }).then(() => {
            
             axios.post('api/types/del', {
-                goodsTypeNo: row.goodsTypeNo
+                goodstypeNum: row.goodstypeNum
               }).then(res => {
                 let index = this.types.indexOf(row);
                 this.types.splice(index, 1);
@@ -219,9 +235,7 @@
           })
       },
     },
-    created() {
-      this.queryAll()
-    },
+    
   }
 
 </script>
