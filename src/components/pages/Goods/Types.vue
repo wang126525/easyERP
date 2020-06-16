@@ -15,10 +15,10 @@
               <el-button type="text" @click="handleMultiDel"> 批量删除</el-button>
             </el-dropdown-item>
             <el-dropdown-item type="text">
-              <el-button type="text" @click="handleMultiUse">批量启用</el-button>
+              <el-button type="text" @click="handleMultiUse(true)">批量启用</el-button>
             </el-dropdown-item>
             <el-dropdown-item>
-              <el-button type="text" @click="handleMultiStopUse">批量禁用</el-button>
+              <el-button type="text" @click="handleMultiUse(false)">批量禁用</el-button>
             </el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
@@ -27,29 +27,30 @@
     <el-table :data="types" @selection-change="handleSelection">
       <el-table-column type="selection">
       </el-table-column>
-      <el-table-column prop="goodstypeNum" width="100px" label="分类编号"></el-table-column>
-      <el-table-column prop="goodstypeName" width="150px" label="分类名">
+      <el-table-column prop="goodstypeNum" label="分类编号"></el-table-column>
+      <el-table-column prop="goodstypeName" label="分类名">
         <template slot-scope="scope">
-            <el-input v-model="scope.row.goodstypeName" v-show="scope.row.editState" @blur="editSubmit(scope.row)" ></el-input>
+            <el-input v-model="scope.row.goodstypeName" v-show="scope.row.editState" ></el-input>
           <span v-show="!scope.row.editState" @click="handleEdit(scope.row)">{{scope.row.goodstypeName}}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="goodstypeAddTime" width="150px" label="添加时间"></el-table-column>
-      <el-table-column prop="tag" label="状态" width="100"  filter-placement="bottom-end">
+      <el-table-column prop="goodstypeAddTime" label="添加时间"></el-table-column>
+      <el-table-column prop="tag" label="状态"  filter-placement="bottom-end">
         <template slot-scope="scope">
-          <el-tag :type="scope.row.goodstypeState === '已启用' ? 'success':'danger'" close-transition>{{scope.row.goodstypeState?'已启用':'已禁用'}}</el-tag>
+          <el-tag :type="scope.row.goodstypeState? 'success':'danger'" close-transition>{{scope.row.goodstypeState?'已启用':'已禁用'}}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作">
         <template slot-scope="scope">
-         <el-button  @click="handleEdit(scope.row)" :type="scope.row.editState?'success':'primary'" size="mini" icon="edit">{{scope.row.editState?'完成':'编辑'}}</el-button>
+         <el-button v-if="!scope.row.editState"  @click="handleEdit(scope.row)" type='primary' size="mini" icon="edit">编辑</el-button>
+         <el-button v-else  @click="editSubmit(scope.row)" type='success' size="mini" icon="edit">完成</el-button>
           <el-button @click="handleDel(scope.row)" type="danger" size="mini">删除</el-button>
           <el-dropdown>
             <el-button type="warning" size="mini">审核</el-button>
             <el-dropdown-menu slot="dropdown">
-              <template v-if="scope.row.goodstypeState==='已启用'">
+              <template v-if="scope.row.goodstypeState">
                 <el-dropdown-item>
-                  <el-button type="text" @click="handleStopUse(scope.row)">禁用</el-button>
+                  <el-button type="text" @click="handleUse(scope.row)">禁用</el-button>
                 </el-dropdown-item>
               </template>
               <el-dropdown-item v-else>
@@ -93,7 +94,7 @@
       getList(){
         getGoodsTypeList().then(res=>{
           if(res.status){
-            this.types = res.data.data;
+            this.types = res.data.data.map(item=>({...item,editState:false}));
           }
         })
       },
@@ -108,10 +109,14 @@
           .catch(err => console.log(err))
       },
       handleUse(row) {
-        this.editForm = Object.assign({}, row);
-        this._stateChange('已启用', this.editForm.goodstypeNum, res => {
-          this.$message.success('已启用')
-          this.queryAll()
+        const params = {...row};
+        const use = row.goodstypeState;
+        params.goodstypeState = !use;
+        edit(params).then(res=>{
+          if(res.status){
+            row.goodstypeState = !use;
+            this.$message.success("启用成功");
+          }
         })
       },
       handleStopUse(row) {
@@ -135,11 +140,25 @@
             .catch(err => console.log(err))
         }
       },
-      handleMultiUse() {
-        this._multiStateChange('已启用', res => {
-          this.$message.success('已启用')
-          this.queryAll()
-        })
+      handleMultiUse(type) {
+        if (this.multipleSelection.length == 0) {
+        this.$message.warning("请选择");
+        } else {
+          const str = type?'启用':'停用';
+          this.$confirm(`确定要批量${str}吗？`, "提示", {}).then(() => {
+              editMany({list:this.multipleSelection,type}).then(res=>{
+                console.log(res)
+                if(res.status){
+                  this.$message.success("操作成功")
+                  this.page = 1;
+                  this.getList();
+                }
+              })
+            }).catch(err=>{
+            })
+
+        }
+
       },
       handleMultiStopUse() {
         this._multiStateChange('已禁用', res => {
@@ -152,28 +171,20 @@
       },
       handleMultiDel(val) {
         if (this.multipleSelection.length == 0) {
-          this.$message.warning('请选择')
-        } else {
-          let multi = this.multipleSelection
-          this.$confirm('你确定？', '提示', {}).then(() => {
-              let goodstypeNum = multi.map(el => el.goodstypeNum)
-              axios.post('api/types/multiDel', {
-                  goodstypeNum: goodstypeNum
-                })
-                .then(res => {
-                  this.$message.success('删除成功');
-                  multi.map(el => {
-                    let i = this.types.indexOf(el);
-                    this.types.splice(i, 1);
-                  })
-                  this.queryAll()
-                })
-                .catch(err => console.log(err))
-            })
-            .catch(() => {
-              this.$message.info('删除取消')
-            })
-        }
+        this.$message.warning("请选择");
+      } else {
+        this.$confirm("你确定？", "提示", {}).then(() => {
+          let multi = this.multipleSelection;
+          let empNum = multi.map(el => el.empNum);
+          delMany(multi).then(res => {
+            if (res.status) {
+              this.$message.success("删除成功");
+              this.page = 1;
+              this.getList();
+            }
+          });
+        });
+      }
       },
       filterHandler(value, row, column) {
         const property = column['property'];
@@ -202,35 +213,27 @@
       },
       handleEdit(row) {
         row.editState=!row.editState
-        this.editForm = Object.assign({}, row);
       },
       editSubmit(row) {
-        axios.post('api/types/update', {
-            goodstypeName:row.goodstypeName,
-            goodstypeNum:row.goodstypeNum
-          }).then(res => {
-            this.$message.success('提交成功')
-            this.queryAll()
-          })
-          .catch(err => console.log(err))
+        edit({goodstypeName:row.goodstypeName,goodstypeNum:row.goodstypeNum}).then(res=>{
+          if(res.status){
+            this.$message.success("修改成功");
+            row.editState = false;
+          }
+        })
       },
-      handleDel(row) { console.log(row)
+      handleDel(row) {
         this.$confirm('删除该记录，确定？', '提示', {
             type: 'warning'
           }).then(() => {
-           
-            axios.post('api/types/del', {
-                goodstypeNum: row.goodstypeNum
-              }).then(res => {
-                let index = this.types.indexOf(row);
-                this.types.splice(index, 1);
-                this.$message.success('删除成功')
-                this.loading = true
-                this.queryAll()
-              })
-              .catch(err => console.log(err))
+           delItem({goodstypeNum:row.goodstypeNum}).then(res=>{
+             if(res.status){
+               this.$message.success("删除成功");
+               this.getList();
+             }
+           })
           })
-          .catch(() => {
+          .catch(err => {
             this.$message.info('删除已取消')
           })
       },
